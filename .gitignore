@@ -1,0 +1,13 @@
+# segredos (nunca vão para o GitHub)
+.env
+.env.*
+!.env.example
+
+# dependências e arquivos gerados
+node_modules/
+dist/
+coverage/
+
+# lixo de sistema e logs
+*.log
+.DS_Store
