@@ -1,6 +1,7 @@
 import { Heart, RefreshCw } from 'lucide-react';
 import { AlertForm } from './components/AlertForm';
 import { AlertList } from './components/AlertList';
+import { Section } from './components/Section';
 import { WatchBanner } from './components/WatchBanner';
 import { useAlerts } from './hooks/useAlerts';
 import { useWatchStatus } from './hooks/useWatchStatus';
@@ -60,69 +61,49 @@ export default function App() {
 
       <main className="flex flex-col gap-7">
         {alerta === null && (
-          <section
-            className="card border border-base-300 bg-base-100/85 shadow-xl shadow-primary/5 backdrop-blur"
-            aria-labelledby="titulo-form"
-          >
-            <div className="card-body gap-4 p-4 sm:p-6">
-              <h2
-                id="titulo-form"
-                className="card-title text-xs font-semibold tracking-[0.18em] text-base-content/80 uppercase"
-              >
-                Novo alerta
-              </h2>
-              <AlertForm onCriar={criar} />
-            </div>
-          </section>
+          <Section id="titulo-form" title="Novo alerta">
+            <AlertForm onCriar={criar} />
+          </Section>
         )}
 
-        <section
-          className="card border border-base-300 bg-base-100/85 shadow-xl shadow-primary/5 backdrop-blur"
-          aria-labelledby="titulo-lista"
+        <Section
+          id="titulo-lista"
+          title="Seu alerta"
+          aside={
+            <span className="text-[0.72rem] text-base-content/75">
+              O sistema acompanha um alerta por vez (limite da cota da API de
+              preços).
+            </span>
+          }
         >
-          <div className="card-body gap-4 p-4 sm:p-6">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2
-                id="titulo-lista"
-                className="card-title text-xs font-semibold tracking-[0.18em] text-base-content/80 uppercase"
+          {erro && (
+            <div className="alert alert-error alert-soft" role="alert">
+              <span>{erro}</span>
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs rounded-full"
+                onClick={() => void recarregar()}
               >
-                Seu alerta
-              </h2>
-              <span className="text-[0.72rem] text-base-content/75">
-                O sistema acompanha um alerta por vez (limite da cota da API de
-                preços).
-              </span>
+                Tentar de novo
+              </button>
             </div>
+          )}
 
-            {erro && (
-              <div className="alert alert-error alert-soft" role="alert">
-                <span>{erro}</span>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-xs rounded-full"
-                  onClick={() => void recarregar()}
-                >
-                  Tentar de novo
-                </button>
-              </div>
-            )}
+          <AlertList
+            alerta={alerta}
+            carregando={carregando}
+            onAlternar={alternarAtivo}
+            onAlterarAlvo={alterarAlvo}
+            onExcluir={excluir}
+            onChecar={checar}
+          />
 
-            <AlertList
-              alerta={alerta}
-              carregando={carregando}
-              onAlternar={alternarAtivo}
-              onAlterarAlvo={alterarAlvo}
-              onExcluir={excluir}
-              onChecar={checar}
-            />
-
-            {alerta !== null && (
-              <p className="text-[0.72rem] leading-relaxed text-base-content/75">
-                Para monitorar outro trecho, exclua este alerta e crie o novo.
-              </p>
-            )}
-          </div>
-        </section>
+          {alerta !== null && (
+            <p className="text-[0.72rem] leading-relaxed text-base-content/75">
+              Para monitorar outro trecho, exclua este alerta e crie o novo.
+            </p>
+          )}
+        </Section>
       </main>
 
       <footer className="text-center text-xs leading-relaxed text-base-content/75">

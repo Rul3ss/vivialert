@@ -9,7 +9,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { useState } from 'react';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import {
   ROTULO_RESULTADO,
   diasAte,
@@ -35,6 +35,26 @@ interface Props {
 
 type Ocupado = 'checar' | 'pausar' | 'alvo' | 'excluir' | null;
 
+/** Um quadradinho de informação do card (rótulo em cima, valor embaixo). */
+function Info({
+  titulo,
+  className = '',
+  children,
+}: {
+  titulo: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={`rounded-2xl bg-base-200/70 px-3 py-2 ${className}`}>
+      <dt className="text-[0.63rem] font-semibold tracking-[0.08em] text-base-content/80 uppercase">
+        {titulo}
+      </dt>
+      <dd className="mt-0.5 text-sm font-semibold tabular-nums">{children}</dd>
+    </div>
+  );
+}
+
 export function AlertCard({
   alerta,
   onAlternar,
@@ -58,80 +78,65 @@ export function AlertCard({
     setAviso(null);
   }
 
-  async function checar() {
-    setOcupado('checar');
+  /**
+   * Esqueleto comum das ações do card: trava os botões, limpa as mensagens,
+   * roda a ação e mostra o erro se ela falhar.
+   */
+  async function executar(tipo: Exclude<Ocupado, null>, acao: () => Promise<void>) {
+    setOcupado(tipo);
     limparMensagens();
     try {
+      await acao();
+    } catch (causa) {
+      setErro(mensagemDeErro(causa));
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  function checar() {
+    return executar('checar', async () => {
       const resultado = await onChecar(alerta.id);
-      if (!resultado.priceCheck.found || resultado.priceCheck.price === null) {
+      const preco = resultado.priceCheck.price;
+      if (!resultado.priceCheck.found || preco === null) {
         setAviso('Consulta feita, mas não havia oferta para essas datas agora.');
       } else if (resultado.notified) {
         setAviso(
-          `Aviso enviado no Telegram: ${formatarPreco(
-            resultado.priceCheck.price,
-          )} (${resultado.result ? ROTULO_RESULTADO[resultado.result] : '—'}).`,
+          `Aviso enviado no Telegram: ${formatarPreco(preco)} (${
+            resultado.result ? ROTULO_RESULTADO[resultado.result] : '—'
+          }).`,
         );
       } else {
         setAviso(
-          `Checado em ${formatarPreco(
-            resultado.priceCheck.price,
-          )} — sem aviso novo (acima do alvo ou mesmo valor do último aviso).`,
+          `Checado em ${formatarPreco(preco)} — sem aviso novo (acima do alvo ou mesmo valor do último aviso).`,
         );
       }
-    } catch (causa) {
-      setErro(mensagemDeErro(causa));
-    } finally {
-      setOcupado(null);
-    }
+    });
   }
 
-  async function alternar() {
-    setOcupado('pausar');
-    limparMensagens();
-    try {
-      await onAlternar(alerta);
-    } catch (causa) {
-      setErro(mensagemDeErro(causa));
-    } finally {
-      setOcupado(null);
-    }
+  function alternar() {
+    return executar('pausar', () => onAlternar(alerta));
   }
 
-  async function excluir() {
-    if (
-      !window.confirm(
-        `Excluir o alerta ${origemCodigo} → ${destinoCodigo}? Só existe um alerta por vez: você poderá criar outro depois.`,
-      )
-    ) {
-      return;
-    }
-    setOcupado('excluir');
-    limparMensagens();
-    try {
-      await onExcluir(alerta.id);
-    } catch (causa) {
-      setErro(mensagemDeErro(causa));
-      setOcupado(null);
-    }
+  function excluir() {
+    const confirmado = window.confirm(
+      `Excluir o alerta ${origemCodigo} → ${destinoCodigo}? Só existe um alerta por vez: você poderá criar outro depois.`,
+    );
+    if (!confirmado) return;
+    return executar('excluir', () => onExcluir(alerta.id));
   }
 
-  async function salvarAlvo(evento: FormEvent<HTMLFormElement>) {
+  function salvarAlvo(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     const preco = parsearPreco(novoAlvo);
     if (preco === null) {
       setErro('Informe um alvo válido, por exemplo 1500.');
       return;
     }
-    setOcupado('alvo');
-    limparMensagens();
-    try {
+    return executar('alvo', async () => {
       await onAlterarAlvo(alerta.id, preco);
       setEditando(false);
-    } catch (causa) {
-      setErro(mensagemDeErro(causa));
-    } finally {
-      setOcupado(null);
-    }
+    });
   }
 
   const dias = diasAte(alerta.departureDate);
@@ -176,32 +181,15 @@ export function AlertCard({
         )}
 
         <dl className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-          <div className="rounded-2xl bg-base-200/70 px-3 py-2">
-            <dt className="text-[0.63rem] font-semibold tracking-[0.08em] text-base-content/80 uppercase">
-              Alvo
-            </dt>
-            <dd className="mt-0.5 text-sm font-semibold tabular-nums">
-              {formatarPreco(alerta.targetPrice)}
-            </dd>
-          </div>
-          <div className="rounded-2xl bg-base-200/70 px-3 py-2">
-            <dt className="text-[0.63rem] font-semibold tracking-[0.08em] text-base-content/80 uppercase">
-              Último aviso
-            </dt>
-            <dd className="mt-0.5 text-sm font-semibold tabular-nums">
-              {alerta.lastNotifiedPrice === null
-                ? '—'
-                : formatarPreco(alerta.lastNotifiedPrice)}
-            </dd>
-          </div>
-          <div className="rounded-2xl bg-base-200/70 px-3 py-2 last:col-span-2 sm:last:col-span-1">
-            <dt className="text-[0.63rem] font-semibold tracking-[0.08em] text-base-content/80 uppercase">
-              Última checagem
-            </dt>
-            <dd className="mt-0.5 text-sm font-semibold tabular-nums">
-              {formatarDataHora(alerta.lastCheckedAt)}
-            </dd>
-          </div>
+          <Info titulo="Alvo">{formatarPreco(alerta.targetPrice)}</Info>
+          <Info titulo="Último aviso">
+            {alerta.lastNotifiedPrice === null
+              ? '—'
+              : formatarPreco(alerta.lastNotifiedPrice)}
+          </Info>
+          <Info titulo="Última checagem" className="col-span-2 sm:col-span-1">
+            {formatarDataHora(alerta.lastCheckedAt)}
+          </Info>
         </dl>
 
         <p className="text-[0.72rem] text-base-content/80">

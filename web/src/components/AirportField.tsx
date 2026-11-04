@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { useAirports } from '../hooks/useAirports';
+import { Field } from './Field';
 
 interface Props {
   id: string;
@@ -77,13 +78,7 @@ export function AirportField({ id, label, value, onChange, placeholder }: Props)
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
-      <label
-        htmlFor={id}
-        className="text-[0.7rem] font-semibold tracking-[0.12em] text-base-content/80 uppercase"
-      >
-        {label}
-      </label>
+    <Field htmlFor={id} label={label}>
       <div className="relative">
         <input
           id={id}
@@ -135,6 +130,6 @@ export function AirportField({ id, label, value, onChange, placeholder }: Props)
       <p className="text-[0.7rem] text-base-content/75">
         Digite a cidade e escolha o aeroporto.
       </p>
-    </div>
+    </Field>
   );
 }

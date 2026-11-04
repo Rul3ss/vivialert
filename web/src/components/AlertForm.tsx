@@ -1,21 +1,22 @@
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { hoje, mensagemDeErro, parsearPreco, somarDias } from '../format';
+import {
+  diferencaEmDias,
+  hoje,
+  mensagemDeErro,
+  parsearPreco,
+  somarDias,
+} from '../format';
 import type { CreateAlertInput } from '../types';
 import { AirportField } from './AirportField';
+import { Field } from './Field';
 
 interface Props {
   onCriar: (input: CreateAlertInput) => Promise<unknown>;
 }
 
 const DURACAO_MAXIMA_DIAS = 60;
-
-function diferencaEmDias(de: string, ate: string): number {
-  const inicio = new Date(`${de}T00:00:00`).getTime();
-  const fim = new Date(`${ate}T00:00:00`).getTime();
-  return Math.round((fim - inicio) / 86_400_000);
-}
 
 export function AlertForm({ onCriar }: Props) {
   const [origem, setOrigem] = useState('');
@@ -82,9 +83,6 @@ export function AlertForm({ onCriar }: Props) {
     }
   }
 
-  const rotulo =
-    'text-[0.7rem] font-semibold tracking-[0.12em] text-base-content/80 uppercase';
-
   return (
     <form
       className="grid grid-cols-1 items-end gap-4 sm:[grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]"
@@ -106,10 +104,7 @@ export function AlertForm({ onCriar }: Props) {
         placeholder="Salvador"
       />
 
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <label htmlFor="ida" className={rotulo}>
-          Ida
-        </label>
+      <Field htmlFor="ida" label="Ida">
         <input
           id="ida"
           type="date"
@@ -126,12 +121,9 @@ export function AlertForm({ onCriar }: Props) {
           }}
           required
         />
-      </div>
+      </Field>
 
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <label htmlFor="volta" className={rotulo}>
-          Volta
-        </label>
+      <Field htmlFor="volta" label="Volta">
         <input
           id="volta"
           type="date"
@@ -141,12 +133,9 @@ export function AlertForm({ onCriar }: Props) {
           onChange={(evento) => setVolta(evento.target.value)}
           required
         />
-      </div>
+      </Field>
 
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <label htmlFor="alvo" className={rotulo}>
-          Valor
-        </label>
+      <Field htmlFor="alvo" label="Valor">
         <div className="flex items-center gap-1 rounded-[var(--radius-field)] border border-base-300 bg-base-100 px-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/25">
           <span className="text-sm text-base-content/80" aria-hidden="true">
             R$
@@ -161,7 +150,7 @@ export function AlertForm({ onCriar }: Props) {
             required
           />
         </div>
-      </div>
+      </Field>
 
       <div className="col-span-full flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         {erro && (

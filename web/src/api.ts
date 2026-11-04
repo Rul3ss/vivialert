@@ -96,10 +96,6 @@ export async function getAlert(): Promise<Alert | null> {
   return alert;
 }
 
-export function getAlertById(id: string): Promise<Alert> {
-  return request<Alert>(`/alerts/${encodeURIComponent(id)}`);
-}
-
 export function createAlert(input: CreateAlertInput): Promise<Alert> {
   return request<Alert>('/alerts', {
     method: 'POST',

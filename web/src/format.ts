@@ -39,10 +39,6 @@ export function formatarDataHora(iso: string | null): string {
   return DATA_HORA.format(new Date(iso));
 }
 
-export function formatarIntervalo(ida: string, volta: string): string {
-  return `${formatarData(ida)} → ${formatarData(volta)}`;
-}
-
 /**
  * Soma dias a uma data pura. Usa UTC só como calendário neutro: `new Date(iso)`
  * trataria a string como UTC e poderia deslocar o dia pelo fuso local.
@@ -63,11 +59,16 @@ export function hoje(): string {
   return `${ano}-${mes}-${dia}`;
 }
 
+/** Dias inteiros de `de` até `ate` (negativo se `ate` vem antes). */
+export function diferencaEmDias(de: string, ate: string): number {
+  const inicio = new Date(`${de}T00:00:00`).getTime();
+  const fim = new Date(`${ate}T00:00:00`).getTime();
+  return Math.round((fim - inicio) / 86_400_000);
+}
+
 /** Dias inteiros até a data (negativo se já passou). */
 export function diasAte(iso: string): number {
-  const inicioDeHoje = new Date(`${hoje()}T00:00:00`).getTime();
-  const alvo = new Date(`${iso}T00:00:00`).getTime();
-  return Math.round((alvo - inicioDeHoje) / 86_400_000);
+  return diferencaEmDias(hoje(), iso);
 }
 
 export function rotuloContagem(dias: number): string {
