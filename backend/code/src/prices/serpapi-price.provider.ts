@@ -118,6 +118,10 @@ export class SerpApiPriceProvider implements PriceProvider {
 
     const corpo = (await resposta.json()) as RespostaSerpApi;
     if (corpo.error) {
+      // "Nenhum resultado" chega como `error`, mas é só ausência de voo.
+      if (/hasn.t returned any results/i.test(corpo.error)) {
+        return null;
+      }
       throw new Error(`SerpApi: ${corpo.error}`);
     }
 

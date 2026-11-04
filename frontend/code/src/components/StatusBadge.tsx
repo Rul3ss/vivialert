@@ -1,21 +1,20 @@
+import { Pause } from 'lucide-react';
+
 interface Props {
   active: boolean;
 }
 
+/** Selo "Ativo" (ponto roxo, fundo lilás) ou "Pausado" (ícone de pausa). */
 export function StatusBadge({ active }: Props) {
-  return (
-    <span
-      className={
-        active
-          ? 'badge gap-1.5 border-0 bg-success/30 text-[0.7rem] font-semibold text-success-content'
-          : 'badge gap-1.5 border-0 bg-base-300/70 text-[0.7rem] font-semibold text-base-content/80'
-      }
-    >
-      <span
-        className="inline-block size-1.5 rounded-full bg-current"
-        aria-hidden="true"
-      />
-      {active ? 'Ativo' : 'Pausado'}
+  return active ? (
+    <span className="inline-flex items-center gap-2 rounded-full bg-lilas px-4 py-2 text-xs font-bold text-roxo">
+      <span className="size-2 rounded-full bg-roxo" aria-hidden="true" />
+      Ativo
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-2 rounded-full bg-rosado px-4 py-2 text-xs font-bold text-suave">
+      <Pause className="size-3" aria-hidden="true" />
+      Pausado
     </span>
   );
 }

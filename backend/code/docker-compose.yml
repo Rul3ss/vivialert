@@ -1,3 +1,4 @@
+name: tripalert
 services:
   db:
     image: postgres:16

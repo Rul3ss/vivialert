@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { KeyboardEvent } from 'react';
+import type { KeyboardEvent, ReactNode } from 'react';
 import { useAirports } from '../hooks/useAirports';
 import { Field } from './Field';
 
@@ -10,6 +10,10 @@ interface Props {
   value: string;
   onChange: (iata: string) => void;
   placeholder?: string;
+  /** Ícone à esquerda dentro da caixa. */
+  icon?: ReactNode;
+  error?: string | null;
+  className?: string;
 }
 
 const LIMITE_SUGESTOES = 8;
@@ -19,7 +23,16 @@ const LIMITE_SUGESTOES = 8;
  * mostra só `UF-IATA`. Depois de escolhido, o campo exibe `SP-CGH` e o
  * formulário guarda só o código IATA.
  */
-export function AirportField({ id, label, value, onChange, placeholder }: Props) {
+export function AirportField({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+  icon,
+  error,
+  className,
+}: Props) {
   const { filtrar, codigoCompleto } = useAirports();
   const [texto, setTexto] = useState('');
   const [pesquisando, setPesquisando] = useState(false);
@@ -78,27 +91,31 @@ export function AirportField({ id, label, value, onChange, placeholder }: Props)
   }
 
   return (
-    <Field htmlFor={id} label={label}>
+    <Field htmlFor={id} label={label} error={error} className={className}>
       <div className="relative">
-        <input
-          id={id}
-          role="combobox"
-          aria-expanded={aberto}
-          aria-controls={listaId}
-          aria-autocomplete="list"
-          aria-activedescendant={aberto ? `${id}-opcao-${ativo}` : undefined}
-          autoComplete="off"
-          className="input w-full"
-          value={pesquisando ? texto : codigo}
-          placeholder={placeholder}
-          onChange={(evento) => digitar(evento.target.value)}
-          onKeyDown={teclar}
-          onFocus={(evento) => evento.currentTarget.select()}
-          onBlur={sair}
-        />
+        <div className="entrada" data-erro={Boolean(error)}>
+          {icon}
+          <input
+            id={id}
+            role="combobox"
+            aria-expanded={aberto}
+            aria-controls={listaId}
+            aria-autocomplete="list"
+            aria-activedescendant={aberto ? `${id}-opcao-${ativo}` : undefined}
+            aria-invalid={Boolean(error)}
+            aria-describedby={error ? `${id}-erro` : undefined}
+            autoComplete="off"
+            value={pesquisando ? texto : codigo}
+            placeholder={placeholder}
+            onChange={(evento) => digitar(evento.target.value)}
+            onKeyDown={teclar}
+            onFocus={(evento) => evento.currentTarget.select()}
+            onBlur={sair}
+          />
+        </div>
         {aberto && (
           <ul
-            className="absolute inset-x-0 top-full z-30 mt-2 max-h-72 overflow-auto rounded-2xl border border-base-300 bg-base-100 p-1.5 shadow-2xl shadow-primary/10"
+            className="absolute inset-x-0 top-full z-30 mt-2 max-h-72 overflow-auto rounded-2xl border border-linha bg-white p-1.5 shadow-[0_12px_32px_rgb(101_53_75/0.12)]"
             id={listaId}
             role="listbox"
             aria-label={`Sugestões de ${label.toLowerCase()}`}
@@ -111,8 +128,8 @@ export function AirportField({ id, label, value, onChange, placeholder }: Props)
                 aria-selected={indice === ativo}
                 className={
                   indice === ativo
-                    ? 'cursor-pointer rounded-xl bg-primary/15 px-3 py-2 text-sm font-semibold tracking-[0.12em] text-primary'
-                    : 'cursor-pointer rounded-xl px-3 py-2 text-sm tracking-[0.12em] text-base-content/80 hover:bg-base-200'
+                    ? 'cursor-pointer rounded-xl bg-lilas px-3 py-2 text-sm font-bold tracking-[0.08em] text-roxo'
+                    : 'cursor-pointer rounded-xl px-3 py-2 text-sm font-semibold tracking-[0.08em] text-tinta hover:bg-rosado'
                 }
                 onMouseDown={(evento) => {
                   // Sem preventDefault o blur fecharia a lista antes do clique.
@@ -127,9 +144,6 @@ export function AirportField({ id, label, value, onChange, placeholder }: Props)
           </ul>
         )}
       </div>
-      <p className="text-[0.7rem] text-base-content/75">
-        Digite a cidade e escolha o aeroporto.
-      </p>
     </Field>
   );
 }

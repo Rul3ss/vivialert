@@ -1,10 +1,14 @@
 import {
-  BellRing,
-  CircleDollarSign,
-  Clock,
+  CalendarDays,
+  CircleAlert,
+  CircleCheck,
+  Clock3,
   ExternalLink,
+  LoaderCircle,
   Pause,
+  Pencil,
   Play,
+  RefreshCw,
   Trash2,
   TriangleAlert,
 } from 'lucide-react';
@@ -12,18 +16,15 @@ import { useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import {
   ROTULO_RESULTADO,
-  diasAte,
   formatarData,
   formatarDataHora,
   formatarPreco,
   mensagemDeErro,
   parsearPreco,
-  rotuloContagem,
 } from '../format';
 import type { Alert, CheckResult } from '../types';
 import { useAirports } from '../hooks/useAirports';
 import { PriceHistory } from './PriceHistory';
-import { StatusBadge } from './StatusBadge';
 
 interface Props {
   alerta: Alert;
@@ -35,22 +36,60 @@ interface Props {
 
 type Ocupado = 'checar' | 'pausar' | 'alvo' | 'excluir' | null;
 
-/** Um quadradinho de informação do card (rótulo em cima, valor embaixo). */
+/** Retorno de uma ação, no formato das faixas do design (título + texto). */
+interface Mensagem {
+  tipo: 'erro' | 'sucesso';
+  titulo: string;
+  texto?: string;
+}
+
+/** Um bloco do resumo: rótulo, valor em destaque e uma nota embaixo. */
 function Info({
   titulo,
-  className = '',
+  nota,
+  destaque = false,
   children,
 }: {
   titulo: string;
-  className?: string;
+  nota: string;
+  destaque?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div className={`rounded-2xl bg-base-200/70 px-3 py-2 ${className}`}>
-      <dt className="text-[0.63rem] font-semibold tracking-[0.08em] text-base-content/80 uppercase">
-        {titulo}
-      </dt>
-      <dd className="mt-0.5 text-sm font-semibold tabular-nums">{children}</dd>
+    <div className="flex min-w-0 flex-1 flex-col gap-2">
+      <dt className="text-sm font-semibold text-suave">{titulo}</dt>
+      <dd
+        className={
+          destaque
+            ? 'text-2xl leading-[1.3] font-bold text-marca tabular-nums'
+            : 'text-base leading-[1.3] font-bold text-tinta tabular-nums'
+        }
+      >
+        {children}
+      </dd>
+      <dd className="text-xs leading-normal font-medium text-suave">{nota}</dd>
+    </div>
+  );
+}
+
+/** Faixa de erro (rosada) ou de sucesso (verde) com ícone, título e texto. */
+export function Faixa({ tipo, titulo, texto }: Mensagem) {
+  const erro = tipo === 'erro';
+  const Icone = erro ? CircleAlert : CircleCheck;
+  return (
+    <div
+      className={
+        erro
+          ? 'flex items-start gap-4 rounded-2xl bg-perigo-fundo p-4 text-perigo'
+          : 'flex items-start gap-4 rounded-2xl bg-sucesso-fundo p-4 text-sucesso'
+      }
+      role={erro ? 'alert' : 'status'}
+    >
+      <Icone className="size-6 shrink-0" aria-hidden="true" />
+      <div className="flex min-w-0 flex-1 flex-col gap-2 leading-normal">
+        <p className="text-base font-bold">{titulo}</p>
+        {texto && <p className="text-sm">{texto}</p>}
+      </div>
     </div>
   );
 }
@@ -63,19 +102,24 @@ export function AlertCard({
   onChecar,
 }: Props) {
   const [ocupado, setOcupado] = useState<Ocupado>(null);
-  const [erro, setErro] = useState<string | null>(null);
-  const [aviso, setAviso] = useState<string | null>(null);
+  const [mensagem, setMensagem] = useState<Mensagem | null>(null);
   const [editando, setEditando] = useState(false);
   const [novoAlvo, setNovoAlvo] = useState('');
+  const [erroAlvo, setErroAlvo] = useState<string | null>(null);
   const [aberto, setAberto] = useState(false);
 
-  const { codigoCompleto } = useAirports();
+  const { buscar, codigoCompleto } = useAirports();
   const origemCodigo = codigoCompleto(alerta.origin);
   const destinoCodigo = codigoCompleto(alerta.destination);
+  const origemCidade = buscar(alerta.origin)?.city ?? alerta.origin;
+  const destinoCidade = buscar(alerta.destination)?.city ?? alerta.destination;
 
-  function limparMensagens() {
-    setErro(null);
-    setAviso(null);
+  function erro(titulo: string, texto?: string) {
+    setMensagem({ tipo: 'erro', titulo, texto });
+  }
+
+  function sucesso(titulo: string, texto?: string) {
+    setMensagem({ tipo: 'sucesso', titulo, texto });
   }
 
   /**
@@ -84,11 +128,11 @@ export function AlertCard({
    */
   async function executar(tipo: Exclude<Ocupado, null>, acao: () => Promise<void>) {
     setOcupado(tipo);
-    limparMensagens();
+    setMensagem(null);
     try {
       await acao();
     } catch (causa) {
-      setErro(mensagemDeErro(causa));
+      erro('Algo deu errado', mensagemDeErro(causa));
     } finally {
       setOcupado(null);
     }
@@ -99,16 +143,27 @@ export function AlertCard({
       const resultado = await onChecar(alerta.id);
       const preco = resultado.priceCheck.price;
       if (!resultado.priceCheck.found || preco === null) {
-        setAviso('Consulta feita, mas não havia oferta para essas datas agora.');
+        if (resultado.alert.lastError) {
+          erro('A consulta falhou', resultado.alert.lastError);
+        } else {
+          erro(
+            `Nenhum voo encontrado para ${origemCodigo} → ${destinoCodigo}`,
+            `De ${formatarData(alerta.departureDate)} a ${formatarData(
+              alerta.returnDate,
+            )}. Tente outras datas ou um aeroporto próximo.`,
+          );
+        }
       } else if (resultado.notified) {
-        setAviso(
-          `Aviso enviado no Telegram: ${formatarPreco(preco)} (${
+        sucesso(
+          'Aviso enviado no Telegram',
+          `Encontramos uma passagem por ${formatarPreco(preco)} (${
             resultado.result ? ROTULO_RESULTADO[resultado.result] : '—'
-          }).`,
+          }). Boa viagem!`,
         );
       } else {
-        setAviso(
-          `Checado em ${formatarPreco(preco)} — sem aviso novo (acima do alvo ou mesmo valor do último aviso).`,
+        sucesso(
+          `Checado em ${formatarPreco(preco)}`,
+          'Sem aviso novo: acima do alvo ou mesmo valor do último aviso.',
         );
       }
     });
@@ -130,207 +185,215 @@ export function AlertCard({
     evento.preventDefault();
     const preco = parsearPreco(novoAlvo);
     if (preco === null) {
-      setErro('Informe um alvo válido, por exemplo 1500.');
+      setErroAlvo('Informe um valor maior que zero.');
       return;
     }
+    setErroAlvo(null);
     return executar('alvo', async () => {
       await onAlterarAlvo(alerta.id, preco);
       setEditando(false);
     });
   }
 
-  const dias = diasAte(alerta.departureDate);
   const travado = ocupado !== null;
+  const linkGoogle = `https://www.google.com/travel/flights?q=${encodeURIComponent(
+    `Flights from ${alerta.origin} to ${alerta.destination} on ${alerta.departureDate} through ${alerta.returnDate}`,
+  )}&hl=pt-BR&gl=BR&curr=BRL`;
 
   return (
-    <article
-      className={
-        alerta.active
-          ? 'card border border-base-300 bg-base-100 shadow-lg shadow-primary/5'
-          : 'card border border-dashed border-base-300 bg-base-100/60 opacity-80'
-      }
-    >
-      <div className="card-body gap-3.5 p-5">
-        <header className="flex flex-wrap items-start justify-between gap-2">
-          <div className="min-w-0">
-            <h3 className="flex items-center gap-2 text-xl font-bold tracking-[0.1em]">
-              {origemCodigo}
-              <span className="text-base-content/40" aria-hidden="true">
-                →
-              </span>
-              {destinoCodigo}
-            </h3>
-            <p className="mt-0.5 text-xs text-base-content/80">
-              Ida {formatarData(alerta.departureDate)} · Volta{' '}
-              {formatarData(alerta.returnDate)} · {rotuloContagem(dias)}
-            </p>
-          </div>
-          <StatusBadge active={alerta.active} />
-        </header>
+    <article className="flex flex-col gap-6">
+      <div className="flex flex-col gap-2">
+        <h3 className="text-[22px] font-bold text-roxo sm:text-[28px]">
+          {origemCodigo} → {destinoCodigo}
+        </h3>
+        <p className="text-sm font-semibold text-tinta">
+          {origemCidade} → {destinoCidade}
+        </p>
+        <p className="flex items-center gap-2 text-sm font-medium text-suave">
+          <CalendarDays className="size-4 shrink-0" aria-hidden="true" />
+          {formatarData(alerta.departureDate)} a {formatarData(alerta.returnDate)} · ida
+          e volta
+        </p>
+      </div>
 
-        {alerta.lastError && (
-          <p className="alert alert-warning alert-soft text-sm" role="alert">
-            <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
-            <span>
-              Última checagem com problema: {alerta.lastError}
-              {alerta.consecutiveFailures > 1
-                ? ` (${alerta.consecutiveFailures} falhas seguidas)`
-                : ''}
-            </span>
-          </p>
-        )}
+      {alerta.lastError && (
+        <p
+          className="flex items-start gap-2 rounded-2xl bg-perigo-fundo p-4 text-sm font-semibold text-perigo"
+          role="alert"
+        >
+          <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
+          <span>
+            Última checagem com problema: {alerta.lastError}
+            {alerta.consecutiveFailures > 1
+              ? ` (${alerta.consecutiveFailures} falhas seguidas)`
+              : ''}
+          </span>
+        </p>
+      )}
 
-        <dl className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-          <Info titulo="Alvo">{formatarPreco(alerta.targetPrice)}</Info>
-          <Info titulo="Último aviso">
+      <dl className="flex flex-col gap-6 rounded-2xl bg-rosado p-4 sm:flex-row sm:gap-8 sm:p-6">
+        <Info titulo="Alvo" nota="Este valor ou menos" destaque>
+          {formatarPreco(alerta.targetPrice)}
+        </Info>
+        <div className="flex gap-4 sm:contents">
+          <Info
+            titulo="Último aviso"
+            nota={
+              alerta.lastNotifiedLevel === null
+                ? 'Nenhum aviso enviado ainda'
+                : formatarDataHora(alerta.lastNotifiedAt)
+            }
+          >
             {alerta.lastNotifiedPrice === null
               ? '—'
               : formatarPreco(alerta.lastNotifiedPrice)}
           </Info>
-          <Info titulo="Última checagem" className="col-span-2 sm:col-span-1">
+          <Info titulo="Última checagem" nota="Horário de Brasília">
             {formatarDataHora(alerta.lastCheckedAt)}
           </Info>
-        </dl>
-
-        <p className="text-[0.72rem] text-base-content/80">
-          {alerta.lastNotifiedLevel === null
-            ? 'Nenhum aviso enviado ainda.'
-            : `Último aviso: ${ROTULO_RESULTADO[alerta.lastNotifiedLevel]} em ${formatarDataHora(
-                alerta.lastNotifiedAt,
-              )}.`}
-        </p>
-
-        <div className="mt-auto flex flex-col gap-1.5 sm:flex-row sm:flex-wrap">
-          <button
-            type="button"
-            className="btn btn-primary btn-sm rounded-full"
-            onClick={() => void checar()}
-            disabled={!alerta.active || travado}
-            title={
-              alerta.active
-                ? 'Consultar o preço agora'
-                : 'Retome o alerta para checar'
-            }
-          >
-            <BellRing className="size-3.5" aria-hidden="true" />
-            {ocupado === 'checar' ? 'Checando…' : 'Checar preço'}
-          </button>
-          <button
-            type="button"
-            className="btn btn-sm rounded-full"
-            onClick={() => void alternar()}
-            disabled={travado}
-          >
-            {alerta.active ? (
-              <Pause className="size-3.5" aria-hidden="true" />
-            ) : (
-              <Play className="size-3.5" aria-hidden="true" />
-            )}
-            {alerta.active ? 'Pausar' : 'Retomar'}
-          </button>
-          <button
-            type="button"
-            className="btn btn-sm rounded-full"
-            onClick={() => {
-              setNovoAlvo(alerta.targetPrice.toFixed(2));
-              setEditando(true);
-              limparMensagens();
-            }}
-            disabled={travado || editando}
-          >
-            <CircleDollarSign className="size-3.5" aria-hidden="true" />
-            Editar alvo
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm rounded-full"
-            aria-expanded={aberto}
-            onClick={() => setAberto(!aberto)}
-          >
-            <Clock className="size-3.5" aria-hidden="true" />
-            {aberto ? 'Ocultar histórico' : 'Histórico'}
-          </button>
-          <a
-            className="btn btn-ghost btn-sm rounded-full"
-            href={`https://www.google.com/travel/flights?q=${encodeURIComponent(
-              `Flights from ${alerta.origin} to ${alerta.destination} on ${alerta.departureDate} through ${alerta.returnDate}`,
-            )}&hl=pt-BR&gl=BR&curr=BRL`}
-            target="_blank"
-            rel="noreferrer noopener"
-          >
-            <ExternalLink className="size-3.5" aria-hidden="true" />
-            Ver no Google
-          </a>
-          <button
-            type="button"
-            className="btn btn-outline btn-error btn-sm rounded-full"
-            onClick={() => void excluir()}
-            disabled={travado}
-          >
-            <Trash2 className="size-3.5" aria-hidden="true" />
-            {ocupado === 'excluir' ? 'Excluindo…' : 'Excluir'}
-          </button>
         </div>
+      </dl>
 
-        {editando && (
-          <form
-            className="grid grid-cols-1 items-center gap-2 rounded-2xl border border-dashed border-base-300 bg-base-200/40 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
-            onSubmit={(evento) => void salvarAlvo(evento)}
-          >
-            <label
-              htmlFor={`alvo-${alerta.id}`}
-              className="col-span-full text-[0.68rem] font-semibold tracking-[0.12em] text-base-content/80 uppercase"
-            >
-              Novo alvo
-            </label>
-            <div className="flex items-center gap-1 rounded-[var(--radius-field)] border border-base-300 bg-base-100 px-2.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/25">
-              <span className="text-xs text-base-content/80" aria-hidden="true">
-                R$
-              </span>
-              <input
-                id={`alvo-${alerta.id}`}
-                inputMode="decimal"
-                className="input h-9 min-w-0 flex-1 border-0 bg-transparent px-1 shadow-none focus:outline-none"
-                value={novoAlvo}
-                onChange={(evento) => setNovoAlvo(evento.target.value)}
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              className="btn btn-primary btn-sm rounded-full"
-              disabled={travado}
-            >
-              {ocupado === 'alvo' ? 'Salvando…' : 'Salvar'}
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm rounded-full"
-              onClick={() => setEditando(false)}
-              disabled={travado}
-            >
-              Cancelar
-            </button>
-            <p className="col-span-full text-[0.72rem] leading-relaxed text-base-content/75">
-              Mudar o alvo libera um novo aviso, mesmo que o preço repita o
-              valor do último aviso.
-            </p>
-          </form>
-        )}
+      {!alerta.active && (
+        <p className="text-sm leading-normal text-suave">
+          As buscas estão pausadas. Retome quando quiser receber novos avisos.
+        </p>
+      )}
 
-        {erro && (
-          <p className="alert alert-error alert-soft text-sm" role="alert">
-            {erro}
+      {ocupado === 'checar' && (
+        <div className="flex flex-col gap-4 rounded-3xl border border-linha p-6" role="status">
+          <p className="text-base font-bold text-tinta">Consultando as companhias aéreas</p>
+          <p className="text-sm leading-normal text-suave">
+            Estamos buscando o melhor preço para {origemCidade} → {destinoCidade}.
           </p>
-        )}
-        {aviso && (
-          <p className="alert alert-success alert-soft text-sm" role="status">
-            {aviso}
-          </p>
-        )}
+        </div>
+      )}
 
-        {aberto && <PriceHistory alertId={alerta.id} />}
+      {mensagem && <Faixa {...mensagem} />}
+
+      <hr className="border-linha" />
+
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+        <button
+          type="button"
+          className="acao acao-lilas"
+          onClick={() => void checar()}
+          disabled={!alerta.active || travado}
+          title={alerta.active ? 'Consultar o preço agora' : 'Retome o alerta para checar'}
+        >
+          {ocupado === 'checar' ? (
+            <LoaderCircle className="animate-spin" aria-hidden="true" />
+          ) : (
+            <RefreshCw aria-hidden="true" />
+          )}
+          {ocupado === 'checar' ? 'Checando preço…' : 'Checar preço'}
+        </button>
+        <button
+          type="button"
+          className="acao acao-lilas"
+          onClick={() => void alternar()}
+          disabled={travado}
+        >
+          {alerta.active ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
+          {alerta.active ? 'Pausar' : 'Retomar'}
+        </button>
+        <button
+          type="button"
+          className="acao acao-lilas"
+          onClick={() => {
+            setNovoAlvo(alerta.targetPrice.toFixed(2));
+            setErroAlvo(null);
+            setEditando(true);
+            setMensagem(null);
+          }}
+          disabled={travado || editando}
+        >
+          <Pencil aria-hidden="true" />
+          Editar alvo
+        </button>
+        <button
+          type="button"
+          className="acao acao-lilas"
+          aria-expanded={aberto}
+          onClick={() => setAberto(!aberto)}
+        >
+          <Clock3 aria-hidden="true" />
+          {aberto ? 'Ocultar histórico' : 'Histórico'}
+        </button>
+        <a
+          className="acao acao-livre"
+          href={linkGoogle}
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          <ExternalLink aria-hidden="true" />
+          Ver no Google
+        </a>
+        <button
+          type="button"
+          className="acao acao-livre acao-perigo"
+          onClick={() => void excluir()}
+          disabled={travado}
+        >
+          <Trash2 aria-hidden="true" />
+          {ocupado === 'excluir' ? 'Excluindo…' : 'Excluir'}
+        </button>
       </div>
+
+      {editando && (
+        <form
+          className="flex flex-col gap-4 rounded-2xl bg-rosado p-4 sm:p-6"
+          noValidate
+          onSubmit={(evento) => void salvarAlvo(evento)}
+        >
+          <div className="flex flex-col gap-2">
+            <label htmlFor={`alvo-${alerta.id}`} className="text-sm font-bold text-tinta">
+              Novo alvo (R$)
+            </label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="entrada sm:max-w-xs" data-erro={Boolean(erroAlvo)}>
+                <input
+                  id={`alvo-${alerta.id}`}
+                  inputMode="decimal"
+                  value={novoAlvo}
+                  aria-invalid={Boolean(erroAlvo)}
+                  aria-describedby={erroAlvo ? `alvo-${alerta.id}-erro` : undefined}
+                  onChange={(evento) => setNovoAlvo(evento.target.value)}
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:flex">
+                <button type="submit" className="acao acao-marca" disabled={travado}>
+                  {ocupado === 'alvo' ? 'Salvando…' : 'Salvar'}
+                </button>
+                <button
+                  type="button"
+                  className="acao acao-livre"
+                  onClick={() => setEditando(false)}
+                  disabled={travado}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+            {erroAlvo && (
+              <p
+                id={`alvo-${alerta.id}-erro`}
+                className="flex items-center gap-2 text-xs font-semibold text-perigo"
+              >
+                <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
+                {erroAlvo}
+              </p>
+            )}
+          </div>
+          <p className="text-xs leading-normal text-suave">
+            Mudar o alvo libera um novo aviso, mesmo que o preço repita o valor do
+            último aviso.
+          </p>
+        </form>
+      )}
+
+      {aberto && <PriceHistory alertId={alerta.id} />}
     </article>
   );
 }

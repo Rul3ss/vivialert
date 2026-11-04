@@ -4,21 +4,45 @@
   themes: valentine --default;
 }
 
-/* Quicksand dá o ar arredondado; a escala do resto vem do Tailwind. */
+/*
+ * Tokens do design (Figma "ViviAlert"). Viram utilities do Tailwind:
+ * `bg-marca`, `text-roxo`, `bg-lilas`, `text-tinta`, `text-suave`, etc.
+ */
 @theme {
   --font-sans: 'Quicksand Variable', ui-rounded, 'Segoe UI', system-ui, sans-serif;
+
+  --color-marca: #c91f7c;
+  --color-roxo: #76519a;
+  --color-lilas: #f2edf8;
+  --color-tinta: #302536;
+  --color-suave: #716575;
+  --color-placeholder: #796d7c;
+  --color-linha: #e7dce5;
+  --color-rosado: #fcf5fa;
+  --color-perigo: #b32f46;
+  --color-perigo-fundo: #fff0f2;
+  --color-sucesso: #276749;
+  --color-sucesso-fundo: #edf7f0;
+
+  --shadow-cartao: 0 8px 32px 0 rgb(101 53 75 / 0.04);
+  --shadow-foco: 0 0 0 4px rgb(118 81 154 / 0.14);
 }
 
 /*
- * Ajustes do tema `valentine`: cantos mais cheios e texto em ameixa no lugar do
- * rosa saturado padrão (melhora o contraste e combina com a paleta).
+ * O tema `valentine` passa a usar as mesmas cores do design, para que os
+ * componentes daisyUI que sobraram (alertas, badges) combinem com a tela.
  * Fora de @layer de propósito: assim vence as variáveis do tema daisyUI.
  */
 [data-theme='valentine'] {
-  --color-base-content: oklch(38% 0.075 340);
-  /* Rosa mais fundo e vermelho mais escuro: texto branco/vermelho passa em AA. */
-  --color-primary: oklch(57% 0.215 352);
-  --color-error: oklch(55% 0.2 20);
+  --color-base-100: #ffffff;
+  --color-base-200: #fcf5fa;
+  --color-base-300: #e7dce5;
+  --color-base-content: #302536;
+  --color-primary: #c91f7c;
+  --color-primary-content: #ffffff;
+  --color-secondary: #76519a;
+  --color-error: #b32f46;
+  --color-success: #276749;
   --radius-box: 1.5rem;
   --radius-field: 1rem;
   --radius-selector: 1rem;
@@ -27,38 +51,149 @@
 @layer base {
   body {
     min-height: 100vh;
-    background-color: var(--color-base-200);
-    background-image:
-      radial-gradient(
-        900px 520px at 8% -12%,
-        oklch(90% 0.09 340 / 0.6),
-        transparent 70%
-      ),
-      radial-gradient(
-        760px 420px at 96% 0%,
-        oklch(92% 0.07 300 / 0.55),
-        transparent 65%
-      ),
-      radial-gradient(
-        700px 460px at 50% 112%,
-        oklch(93% 0.06 200 / 0.45),
-        transparent 70%
-      );
+    color: var(--color-tinta);
+    background-color: #f9eff8;
+    background-image: linear-gradient(to right, #fff0f7, #f4eefa);
     background-attachment: fixed;
     -webkit-font-smoothing: antialiased;
   }
 
   ::selection {
-    background: oklch(80% 0.12 350 / 0.7);
+    background: rgb(201 31 124 / 0.2);
   }
 }
 
-/*
- * O daisyUI pinta o anel de foco com `base-content` (ameixa escuro). Em rosa o
- * foco fica mais leve e continua visível. Fora de @layer para vencer as
- * utilities do daisyUI.
- */
-.input:focus,
-.input:focus-within {
-  --input-color: var(--color-primary);
+@layer components {
+  /* Caixa de entrada do design: 48px, borda clara, cantos de 16px, ícone à esquerda. */
+  .entrada {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    height: 3rem;
+    width: 100%;
+    padding-inline: 1rem;
+    border: 1px solid var(--color-linha);
+    border-radius: 1rem;
+    background: #fff;
+    color: var(--color-tinta);
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition:
+      border-color 0.15s,
+      box-shadow 0.15s;
+  }
+
+  .entrada:focus-within {
+    border: 2px solid var(--color-roxo);
+    padding-inline: calc(1rem - 1px);
+    box-shadow: var(--shadow-foco);
+  }
+
+  .entrada[data-erro='true'] {
+    border-color: var(--color-perigo);
+  }
+
+  .entrada > svg {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    color: var(--color-suave);
+  }
+
+  .entrada > input {
+    min-width: 0;
+    flex: 1;
+    height: 100%;
+    background: transparent;
+    outline: none;
+    font: inherit;
+    color: inherit;
+  }
+
+  /*
+   * O ícone nativo do seletor de data ocupava espaço e cortava "dd/mm/aaaa".
+   * Ele fica invisível e cobre a caixa inteira: clicar em qualquer ponto abre
+   * o calendário, e o ícone visível é o do design.
+   */
+  .entrada {
+    position: relative;
+  }
+
+  .entrada > input[type='date']::-webkit-calendar-picker-indicator {
+    position: absolute;
+    inset: 0;
+    width: auto;
+    height: auto;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .entrada > input::placeholder {
+    color: var(--color-placeholder);
+    font-weight: 500;
+  }
+
+  /* Botões do design: 48px de altura, cantos de 16px, texto 14px negrito. */
+  .acao {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 3rem;
+    padding-inline: 1rem;
+    border-radius: 1rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    white-space: nowrap;
+    color: var(--color-roxo);
+    cursor: pointer;
+    transition:
+      background-color 0.15s,
+      filter 0.15s;
+  }
+
+  .acao > svg {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+
+  .acao:focus-visible {
+    outline: 2px solid var(--color-roxo);
+    outline-offset: 2px;
+  }
+
+  .acao:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .acao-lilas {
+    background: var(--color-lilas);
+  }
+
+  .acao-lilas:not(:disabled):hover {
+    filter: brightness(0.96);
+  }
+
+  .acao-marca {
+    background: var(--color-marca);
+    color: #fff;
+  }
+
+  .acao-marca:not(:disabled):hover {
+    filter: brightness(1.08);
+  }
+
+  .acao-livre:not(:disabled):hover {
+    background: var(--color-lilas);
+  }
+
+  .acao-perigo {
+    color: var(--color-perigo);
+  }
+
+  .acao-perigo:not(:disabled):hover {
+    background: var(--color-perigo-fundo);
+  }
 }

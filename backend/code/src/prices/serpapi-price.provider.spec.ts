@@ -115,6 +115,26 @@ describe('SerpApiPriceProvider', () => {
     await expect(provider.buscarMenorPreco(CONSULTA)).resolves.toBeNull();
   });
 
+  it('"nenhum resultado" da SerpApi é sem oferta, não falha', async () => {
+    fetchMock.mockResolvedValue(
+      resposta(200, {
+        error: "Google Flights hasn't returned any results for this query.",
+      }),
+    );
+
+    await expect(provider.buscarMenorPreco(CONSULTA)).resolves.toBeNull();
+  });
+
+  it('"nenhum resultado" com apóstrofo curvo também é sem oferta', async () => {
+    fetchMock.mockResolvedValue(
+      resposta(200, {
+        error: 'Google Flights hasn’t returned any results for this query.',
+      }),
+    );
+
+    await expect(provider.buscarMenorPreco(CONSULTA)).resolves.toBeNull();
+  });
+
   it('erro de chave inválida tem mensagem própria', async () => {
     fetchMock.mockResolvedValue(resposta(401, {}));
 
