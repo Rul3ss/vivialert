@@ -18,7 +18,7 @@ services:
 
   api:
     build:
-      context: ./backend
+      context: .
       target: dev
     ports:
       - "3000:3000"
@@ -38,7 +38,7 @@ services:
       CHECK_INTERVAL_MINUTES: ${CHECK_INTERVAL_MINUTES:-720}
       WATCH_ENABLED: ${WATCH_ENABLED:-true}
     volumes:
-      - ./backend:/usr/src/app
+      - .:/usr/src/app
       - /usr/src/app/node_modules
     depends_on:
       db:

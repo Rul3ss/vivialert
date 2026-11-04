@@ -356,7 +356,7 @@ export class AlertsService {
   }
 
   async findPrices(id: string) {
-    const alert = await this.buscarOu404(id);
+    await this.buscarOu404(id);
 
     const checks = await this.priceChecks.find({
       where: { alert: { id } },

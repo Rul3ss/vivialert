@@ -2,13 +2,10 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /**
- * Procuramos o .env tanto rodando da raiz do repositório quanto de backend/.
+ * O .env fica em backend/code/, a pasta de onde a API roda.
  * No Docker o arquivo não existe: as variáveis chegam pelo docker-compose.
  */
-const CANDIDATOS = [
-  resolve(process.cwd(), '.env'),
-  resolve(process.cwd(), '..', '.env'),
-];
+const CANDIDATOS = [resolve(process.cwd(), '.env')];
 
 export const VARIAVEIS_OBRIGATORIAS = [
   'DATABASE_URL',

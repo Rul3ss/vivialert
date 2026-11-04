@@ -32,7 +32,7 @@ POST /alerts (trecho + ida + volta + alvo)  ──▶ alerts (Postgres)
 O aviso acompanha o preço: sempre que uma checagem encontra um valor dentro da faixa (oferta ou perto
 do alvo) **diferente do último valor avisado**, a pessoa recebe mensagem — inclusive se o preço subiu
 e continua abaixo do alvo. Valor idêntico ao último aviso não é repetido, e preço acima da tolerância
-de 10% nunca avisa (`src/alerts/notification-policy.ts`).
+de 10% nunca avisa (`backend/code/src/alerts/notification-policy.ts`).
 
 ### Datas
 
@@ -62,7 +62,7 @@ provedor usa o `fetch` nativo. O `package.json` do backend não ganhou nada na F
 Pré-requisitos: Docker + Docker Compose.
 
 ```bash
-git clone <url-do-repo> && cd tripalert
+git clone <url-do-repo> && cd tripalert/backend/code
 cp .env.example .env
 ```
 
@@ -77,7 +77,7 @@ docker compose up -d --build
 curl http://localhost:3000/health     # status + se o preço é real
 
 # opcional: interface web em http://localhost:5173
-cd web && echo "VITE_API_KEY=<sua API_KEY>" > .env.local && pnpm install && pnpm dev
+cd ../../frontend/code && echo "VITE_API_KEY=<sua API_KEY>" > .env.local && pnpm install && pnpm dev
 ```
 
 O banco é criado automaticamente: as **migrations rodam no boot** da API (`migrationsRun: true`),
@@ -113,12 +113,12 @@ errado, bot bloqueado). Este comando manda uma mensagem de teste para o chat con
 Requer Node >= 20.12 (o `.env` é carregado via `process.loadEnvFile`).
 
 ```bash
-cd backend
+cd backend/code
 pnpm install
 pnpm start:dev
 ```
 
-Nesse modo o `.env` da raiz é carregado automaticamente, mas é preciso definir `DATABASE_URL`
+Nesse modo o `.env` de `backend/code/` é carregado automaticamente, mas é preciso definir `DATABASE_URL`
 apontando para um Postgres acessível (no Docker ela é montada pelo compose):
 
 ```env
@@ -143,7 +143,7 @@ DATABASE_URL=postgresql://tripalert:senha@localhost:5432/tripalert
 | `VITE_API_URL` | — | (frontend) URL pública da API; vazio em dev por causa do proxy |
 | `VITE_API_KEY` | — | (frontend) a mesma `API_KEY` do backend |
 
-Sem as obrigatórias a API **não sobe** e diz exatamente o que falta (`src/config/env.ts`).
+Sem as obrigatórias a API **não sobe** e diz exatamente o que falta (`backend/code/src/config/env.ts`).
 `API_KEY` curta ou igual à do exemplo também é recusada.
 
 ## Endpoints
@@ -203,15 +203,15 @@ curl -X DELETE -H "Authorization: Bearer $K" http://localhost:3000/alerts/<id>
 
 ## Frontend
 
-`web/` é a interface em React 19 + Vite 7 + TypeScript. O visual usa Tailwind CSS 4 com o tema
+`frontend/` é a interface em React 19 + Vite 7 + TypeScript. O visual usa Tailwind CSS 4 com o tema
 `valentine` do daisyUI 5 (rosa pastel), ícones do lucide-react e a fonte Quicksand — tudo instalado
 localmente, sem CDN. O estado vem de um único hook (`useAlerts`), porque existe um alerta só.
 
-Para trocar a paleta, muda-se a lista `themes` em `web/src/index.css` (por exemplo `cupcake`) e o
-`data-theme` do `<html>` em `web/index.html`.
+Para trocar a paleta, muda-se a lista `themes` em `frontend/code/src/index.css` (por exemplo `cupcake`) e o
+`data-theme` do `<html>` em `frontend/code/index.html`.
 
 ```bash
-cd web
+cd frontend/code
 echo "VITE_API_KEY=<sua API_KEY>" > .env.local
 pnpm install
 pnpm dev        # http://localhost:5173, com proxy de /alerts para localhost:3000
@@ -232,9 +232,9 @@ Flights (via SerpApi) só **aceita** códigos, não devolve a lista. A base é a
 [OurAirports](https://ourairports.com/data/) (domínio público, atualizada toda semana), filtrada por
 `iso_country=BR`, `iata_code` preenchido e `scheduled_service=yes` — 129 aeroportos hoje.
 
-- `backend/src/airports/airports.data.ts` é o arquivo gerado (não edite à mão);
-- `backend/scripts/generate-airports.mjs` baixa o CSV e reescreve o arquivo
-  (`node scripts/generate-airports.mjs` dentro de `backend/`, ou passe um CSV já baixado como argumento);
+- `backend/code/src/airports/airports.data.ts` é o arquivo gerado (não edite à mão);
+- `backend/code/scripts/generate-airports.mjs` baixa o CSV e reescreve o arquivo
+  (`node scripts/generate-airports.mjs` dentro de `backend/code/`, ou passe um CSV já baixado como argumento);
 - `GET /airports` devolve a lista inteira (o frontend cacheia) e `GET /airports?q=` busca por IATA,
   cidade ou nome oficial, sem acento e sem caixa. Cada item traz `iata`, `city`, `name` e `state`.
 
@@ -245,24 +245,26 @@ sem UF.
 ## Estrutura
 
 ```
-backend/src/
-├── alerts/          # entidade, DTOs, controllers, service, vigia, avaliação e política de notificação
-├── airports/        # lista de aeroportos brasileiros (dado gerado) + busca
-├── common/          # datas com fuso explícito + guard da API key
-├── prices/          # PriceProvider (interface + token de DI), SerpApi e Fake
-├── notifications/   # TelegramService + /notifications/test
-├── database/        # data-source e migrations
-├── config/          # carregamento e validação do ambiente
-└── health.controller.ts
+backend/code/                  # configurações do backend (Dockerfile, package.json, docker-compose.yml, .env...)
+└── src/                       # o código da API
+    ├── alerts/                # entidade, DTOs, controllers, service, vigia, avaliação e política de notificação
+    ├── airports/              # lista de aeroportos brasileiros (dado gerado) + busca
+    ├── common/                # datas com fuso explícito + guard da API key
+    ├── prices/                # PriceProvider (interface + token de DI), SerpApi e Fake
+    ├── notifications/         # TelegramService + /notifications/test
+    ├── database/              # data-source e migrations
+    ├── config/                # carregamento e validação do ambiente
+    └── health.controller.ts
 
-web/src/
-├── api.ts           # cliente HTTP (fetch) da API, com a API key
-├── index.css        # Tailwind CSS 4 + tema valentine (daisyUI) + ajustes de base
-├── types.ts         # contratos espelhando o backend
-├── format.ts        # moeda, datas (fuso local) e parsing de preço em pt-BR
-├── hooks/           # useAlerts (o alerta + mutações), useWatchStatus, useAirports
-├── components/      # AlertForm, AirportField, AlertList, AlertCard, WatchBanner, PriceHistory
-└── App.tsx          # composição da página
+frontend/code/                 # configurações do frontend (package.json, vite.config.ts, index.html...)
+└── src/                       # o código da tela
+    ├── api.ts                 # cliente HTTP (fetch) da API, com a API key
+    ├── index.css              # Tailwind CSS 4 + tema valentine (daisyUI) + ajustes de base
+    ├── types.ts               # contratos espelhando o backend
+    ├── format.ts              # moeda, datas (fuso local) e parsing de preço em pt-BR
+    ├── hooks/                 # useAlerts (o alerta + mutações), useWatchStatus, useAirports
+    ├── components/            # AlertForm, AirportField, AlertList, AlertCard, WatchBanner, PriceHistory
+    └── App.tsx                # composição da página
 ```
 
 ## Decisões de arquitetura
@@ -283,20 +285,17 @@ web/src/
 
 ## Deploy
 
-A API roda sem estado; o banco é gerenciado (Neon, Supabase, Fly Postgres). Exemplos prontos:
+Ainda não há hospedagem configurada: o sistema roda localmente com o Docker Compose (veja o
+Quick start). A API é sem estado e o banco pode ser qualquer Postgres, então ela pode ir para
+qualquer serviço que aceite Docker.
 
-- **`fly.toml`** — API com `target=prod`, healthcheck em `/health` e app dormindo quando ocioso;
-- **`.github/workflows/vigia.yml`** — cron que chama `POST /watch/run` duas vezes por dia. É o que
-  faz o sistema avisar sem ninguém abrir nada (e mesmo com o app dormindo);
-- **`.github/workflows/ci.yml`** — test + lint + build dos dois projetos a cada push/PR.
-
-Para o frontend: `cd web && pnpm build` e publique `web/dist` (Netlify/Vercel/Cloudflare Pages),
-definindo `VITE_API_URL` e `VITE_API_KEY` no build.
+Para o frontend: `cd frontend/code && pnpm build` gera a pasta `frontend/code/dist` (arquivos estáticos).
+Defina `VITE_API_URL` e `VITE_API_KEY` no build.
 
 ```bash
 # imagem de produção na mão
-docker build --target prod -t tripalert-api ./backend
-docker run --env-file .env -p 3000:3000 tripalert-api
+docker build --target prod -t tripalert-api ./backend/code
+docker run --env-file backend/code/.env -p 3000:3000 tripalert-api
 ```
 
 O `docker-compose.yml` usa o target `dev` (watch mode) para o desenvolvimento local.
@@ -304,13 +303,13 @@ O `docker-compose.yml` usa o target `dev` (watch mode) para o desenvolvimento lo
 ## Testes
 
 ```bash
-cd backend
+cd backend/code
 pnpm test      # unitários (100 testes)
 pnpm lint
 # e2e: sobe o AppModule de verdade, então exige um Postgres acessível
 DATABASE_URL=postgresql://usuario:senha@localhost:5432/banco pnpm test:e2e
 
-cd ../web
+cd ../../frontend/code
 pnpm build     # typecheck + build do frontend
 ```
 
@@ -330,4 +329,4 @@ pnpm build     # typecheck + build do frontend
   - [x] aviso com as datas encontradas, companhia e link para conferir
 - [ ] Passo 2 — e-mail como segundo canal de aviso
 - [ ] Passo 4 — `departure_token` para escolher segmentos de volta (hoje o preço é o do melhor itinerário)
-- [ ] Passo 7 — hospedagem exercitada em produção (o `fly.toml` e os workflows já estão prontos)
+- [ ] Passo 7 — hospedagem em produção (a escolher)
