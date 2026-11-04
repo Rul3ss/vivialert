@@ -7,7 +7,15 @@
 node_modules/
 dist/
 coverage/
+*.tsbuildinfo
+
+# temporários de verificação local
+.tmp-*
+.pnpm-store-local/
+.pnpm-store/
 
 # lixo de sistema e logs
 *.log
 .DS_Store
+
+planos/

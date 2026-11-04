@@ -5,8 +5,8 @@ services:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
-    ports:
-      - "5432:5432"
+    # Sem "ports": o banco não precisa ficar exposto na máquina nem na rede.
+    # Para abrir o psql localmente: docker compose exec db psql -U ${DB_USER}
     volumes:
       - tripalert_data:/var/lib/postgresql/data
     healthcheck:
@@ -14,6 +14,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
   api:
     build:
@@ -24,8 +25,18 @@ services:
     environment:
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
       PORT: 3000
+      # Container não tem TTY: sem CI=true, o pnpm aborta quando precisa
+      # refazer o node_modules do volume após mudar dependências
+      # (ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY).
+      CI: "true"
+      API_KEY: ${API_KEY}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      PRICE_PROVIDER: ${PRICE_PROVIDER:-fake}
+      SERPAPI_KEY: ${SERPAPI_KEY}
+      CHECK_INTERVAL_MINUTES: ${CHECK_INTERVAL_MINUTES:-720}
+      WATCH_ENABLED: ${WATCH_ENABLED:-true}
     volumes:
       - ./backend:/usr/src/app
       - /usr/src/app/node_modules
@@ -34,7 +45,8 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/ || exit 1"]
+      # /health testa o banco de verdade (o "/" do starter não testava nada).
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5

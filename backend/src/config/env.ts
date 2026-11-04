@@ -14,7 +14,11 @@ export const VARIAVEIS_OBRIGATORIAS = [
   'DATABASE_URL',
   'TELEGRAM_BOT_TOKEN',
   'TELEGRAM_CHAT_ID',
+  'API_KEY',
 ] as const;
+
+/** Chave de exemplo do `.env.example`: aceitá-la seria o mesmo que não ter chave. */
+const CHAVES_PROIBIDAS = new Set(['troque-esta-chave', 'changeme', 'change-me']);
 
 /**
  * Carrega o .env local quando existir (Node >= 20.12).
@@ -34,6 +38,7 @@ export function loadEnvFileSafe(): void {
 
 /**
  * Falha rápido no boot em vez de deixar o app subir e só avisar na hora de enviar.
+ * Inclui `API_KEY`: subir sem chave deixaria a API aberta para qualquer um.
  */
 export function validateEnv(): void {
   const faltando = VARIAVEIS_OBRIGATORIAS.filter(
@@ -44,6 +49,14 @@ export function validateEnv(): void {
     throw new Error(
       `Variáveis de ambiente ausentes: ${faltando.join(', ')}. ` +
         'Copie o .env.example para .env e preencha os valores.',
+    );
+  }
+
+  const apiKey = process.env.API_KEY?.trim() ?? '';
+  if (apiKey.length < 16 || CHAVES_PROIBIDAS.has(apiKey.toLowerCase())) {
+    throw new Error(
+      'API_KEY muito curta ou igual à do exemplo. Gere uma com: ' +
+        "node -e \"console.log(require('crypto').randomBytes(24).toString('hex'))\"",
     );
   }
 }

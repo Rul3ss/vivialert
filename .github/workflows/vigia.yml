@@ -1,0 +1,37 @@
+# Vigia de preços: dispara um ciclo na API. É o que faz o sistema avisar sem
+# ninguém abrir nada, e funciona mesmo com o app dormindo (auto_stop).
+#
+# Configure em Settings → Secrets and variables → Actions:
+#   API_URL     ex.: https://vivialert.fly.dev
+#   API_KEY     a mesma chave do backend
+#
+# Cota: cada ciclo gasta 1 busca por dia da janela de ida. Com 2 ciclos/dia e
+# janela de 3 dias são ~6 buscas/dia (~180/mês), dentro do plano free da SerpApi.
+# Com várias chaves em SERPAPI_KEY (no backend), a cota soma: 3 chaves = 750/mês.
+name: vigia
+
+on:
+  schedule:
+    # 09:00 e 21:00 UTC = 06:00 e 18:00 em Brasília.
+    - cron: '0 9,21 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  checar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Acionar o ciclo de checagem
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          API_KEY: ${{ secrets.API_KEY }}
+        run: |
+          if [ -z "$API_URL" ] || [ -z "$API_KEY" ]; then
+            echo "::error::Configure os secrets API_URL e API_KEY no repositório."
+            exit 1
+          fi
+          resposta=$(curl -sS --fail-with-body -m 300 -X POST "$API_URL/watch/run" \
+            -H "Authorization: Bearer $API_KEY")
+          echo "$resposta"
+          # "rodando": true significa que já havia um ciclo em andamento.
+          echo "$resposta" | grep -q '"rodando": *false' || echo "::warning::Ciclo já estava em andamento."

@@ -1,9 +1,12 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { join } from 'node:path';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { AlertsModule } from './alerts/alerts.module';
+import { AirportsModule } from './airports/airports.module';
+import { HealthController } from './health.controller';
+import { PricesModule } from './prices/prices.module';
+import { NotificationsController } from './notifications/notifications.controller';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -21,8 +24,11 @@ import { AlertsModule } from './alerts/alerts.module';
       }),
     }),
     AlertsModule,
+    AirportsModule,
+    // HealthController e NotificationsController injetam destes módulos.
+    PricesModule,
+    NotificationsModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [HealthController, NotificationsController],
 })
 export class AppModule {}
