@@ -1,0 +1,51 @@
+# Vigia de preços em produção.
+# A API no Render (plano free) dorme sem tráfego, então o vigia interno fica
+# desligado (WATCH_ENABLED=false) e este workflow dispara um ciclo de fora:
+# acorda a API pelo /health e chama POST /watch/run.
+#
+# Secrets necessários (Settings → Secrets and variables → Actions):
+#   API_URL  ex.: https://vivialert.onrender.com  (sem "/" no final)
+#   API_KEY  a mesma API_KEY configurada no Render
+
+name: Vigia de preços
+
+on:
+  schedule:
+    # 08h e 20h no horário de Brasília (o cron do GitHub é em UTC).
+    # Cada ciclo gasta 1 busca da SerpApi: 2/dia ≈ 60/mês.
+    - cron: "0 11,23 * * *"
+  workflow_dispatch: # botão "Run workflow" para rodar na mão
+
+concurrency:
+  group: vigia
+  cancel-in-progress: false
+
+jobs:
+  checar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Acordar a API (Render free dorme)
+        env:
+          API_URL: ${{ secrets.API_URL }}
+        run: |
+          for i in $(seq 1 12); do
+            if curl -fsS --max-time 20 "$API_URL/health"; then
+              echo; echo "API acordada."
+              exit 0
+            fi
+            echo "ainda acordando... ($i/12)"
+            sleep 10
+          done
+          echo "API não respondeu ao /health."
+          exit 1
+
+      - name: Rodar um ciclo do vigia
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          API_KEY: ${{ secrets.API_KEY }}
+        run: |
+          curl -fsS --max-time 120 -X POST \
+            -H "x-api-key: $API_KEY" \
+            "$API_URL/watch/run"
+          echo
