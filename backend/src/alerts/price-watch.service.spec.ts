@@ -89,7 +89,7 @@ describe('PriceWatchService', () => {
   it('mantém ativo quando a ida ainda não passou', async () => {
     alertas.find.mockResolvedValue([
       criarAlerta({
-        departureDate: somarDias(hoje(), -2),
+        departureDate: hoje(), // ida hoje ainda não passou
         returnDate: somarDias(hoje(), 3),
       }),
     ]);

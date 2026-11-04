@@ -64,6 +64,9 @@ export interface CheckOutcome {
 /** Código do Postgres para violação de índice único. */
 const UNIQUE_VIOLATION = '23505';
 
+const MSG_ALERTA_EXISTENTE =
+  'Já existe um alerta. O sistema trabalha com um alerta por vez: edite ou exclua o atual.';
+
 function toAlertResponse(alert: Alert): AlertResponse {
   return {
     id: alert.id,
@@ -121,9 +124,7 @@ export class AlertsService {
 
     const existente = await this.buscarUnico();
     if (existente) {
-      throw new ConflictException(
-        'Já existe um alerta. O sistema trabalha com um alerta por vez: edite ou exclua o atual.',
-      );
+      throw new ConflictException(MSG_ALERTA_EXISTENTE);
     }
 
     const alert = this.alerts.create({
@@ -144,9 +145,7 @@ export class AlertsService {
         (erro.driverError as { code?: string } | undefined)?.code ===
           UNIQUE_VIOLATION
       ) {
-        throw new ConflictException(
-          'Já existe um alerta. O sistema trabalha com um alerta por vez: edite ou exclua o atual.',
-        );
+        throw new ConflictException(MSG_ALERTA_EXISTENTE);
       }
       throw erro;
     }
@@ -162,11 +161,15 @@ export class AlertsService {
   }
 
   async findOne(id: string) {
+    return toAlertResponse(await this.buscarOu404(id));
+  }
+
+  private async buscarOu404(id: string): Promise<Alert> {
     const alert = await this.alerts.findOneBy({ id });
     if (!alert) {
       throw new NotFoundException('Alerta não encontrado.');
     }
-    return toAlertResponse(alert);
+    return alert;
   }
 
   async update(id: string, dto: UpdateAlertDto) {
@@ -174,10 +177,7 @@ export class AlertsService {
       throw new BadRequestException('Informe targetPrice ou active.');
     }
 
-    const alert = await this.alerts.findOneBy({ id });
-    if (!alert) {
-      throw new NotFoundException('Alerta não encontrado.');
-    }
+    const alert = await this.buscarOu404(id);
 
     if (
       dto.targetPrice !== undefined &&
@@ -202,10 +202,7 @@ export class AlertsService {
   }
 
   async remove(id: string) {
-    const alert = await this.alerts.findOneBy({ id });
-    if (!alert) {
-      throw new NotFoundException('Alerta não encontrado.');
-    }
+    const alert = await this.buscarOu404(id);
     // Os price_checks vão junto (FK com ON DELETE CASCADE).
     await this.alerts.remove(alert);
   }
@@ -240,24 +237,27 @@ export class AlertsService {
 
       alert.lastError = motivo;
       alert.consecutiveFailures += 1;
-      await this.alerts.save(alert);
-
-      const registro = await this.priceChecks.save(
-        this.priceChecks.create({
-          alert,
-          price: '0.00',
-          found: false,
-          source: this.priceProvider.nome,
-        }),
-      );
-
-      return {
-        alert: toAlertResponse(alert),
-        priceCheck: toPriceCheckResponse(registro),
-        result: null,
-        notified: false,
-      };
+      return this.registrarSemPreco(alert);
     }
+  }
+
+  /** Grava uma checagem sem preço (falha ou sem oferta). Nunca notifica. */
+  private async registrarSemPreco(alert: Alert): Promise<CheckOutcome> {
+    await this.alerts.save(alert);
+    const registro = await this.priceChecks.save(
+      this.priceChecks.create({
+        alert,
+        price: '0.00',
+        found: false,
+        source: this.priceProvider.nome,
+      }),
+    );
+    return {
+      alert: toAlertResponse(alert),
+      priceCheck: toPriceCheckResponse(registro),
+      result: null,
+      notified: false,
+    };
   }
 
   private async registrarCotacao(
@@ -271,21 +271,7 @@ export class AlertsService {
 
     // Sem oferta não é preço zero e NUNCA gera notificação.
     if (cotacao === null) {
-      await this.alerts.save(alert);
-      const vazio = await this.priceChecks.save(
-        this.priceChecks.create({
-          alert,
-          price: '0.00',
-          found: false,
-          source: this.priceProvider.nome,
-        }),
-      );
-      return {
-        alert: toAlertResponse(alert),
-        priceCheck: toPriceCheckResponse(vazio),
-        result: null,
-        notified: false,
-      };
+      return this.registrarSemPreco(alert);
     }
 
     const check = this.priceChecks.create({
@@ -360,25 +346,17 @@ export class AlertsService {
 
   /** Botão "Checar preço" da tela: recusa alerta pausado (o vigia não). */
   async checkPrice(id: string): Promise<CheckOutcome> {
-    const alert = await this.alerts.findOneBy({ id });
-    if (!alert) {
-      throw new NotFoundException('Alerta não encontrado.');
-    }
+    const alert = await this.buscarOu404(id);
 
     if (!alert.active) {
-      throw new ConflictException(
-        'Alerta pausado. Retome para checar.',
-      );
+      throw new ConflictException('Alerta pausado. Retome para checar.');
     }
 
     return this.executarChecagem(alert);
   }
 
   async findPrices(id: string) {
-    const alert = await this.alerts.findOneBy({ id });
-    if (!alert) {
-      throw new NotFoundException('Alerta não encontrado.');
-    }
+    const alert = await this.buscarOu404(id);
 
     const checks = await this.priceChecks.find({
       where: { alert: { id } },

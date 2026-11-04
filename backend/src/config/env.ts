@@ -60,3 +60,8 @@ export function validateEnv(): void {
     );
   }
 }
+
+/** `WATCH_ENABLED=false` desliga o vigia automático (útil em testes e no CI). */
+export function watchEnabled(): boolean {
+  return process.env.WATCH_ENABLED?.trim().toLowerCase() !== 'false';
+}

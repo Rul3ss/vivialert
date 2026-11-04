@@ -3,9 +3,6 @@ import type { DataSource } from 'typeorm';
 import { HealthController } from './health.controller';
 import type { PriceProvider } from './prices/price-provider.interface';
 
-// Este arquivo era o teste do `GET /` → "Hello World!" do starter do Nest,
-// substituído na Fase 1 por `GET /health`. O sandbox desta sessão não permite
-// apagar arquivos, então o mesmo caminho agora testa o health.
 describe('HealthController', () => {
   const envOriginal = { ...process.env };
 

@@ -1,10 +1,15 @@
-import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Inject,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { Inject } from '@nestjs/common';
 import { PRICE_PROVIDER } from './prices/price-provider.interface';
 import type { PriceProvider } from './prices/price-provider.interface';
 import { hoje } from './common/date';
+import { VARIAVEIS_OBRIGATORIAS, watchEnabled } from './config/env';
 
 interface HealthResponse {
   status: 'ok' | 'degraded';
@@ -41,12 +46,9 @@ export class HealthController {
       database = 'down';
     }
 
-    const missingConfig = [
-      'DATABASE_URL',
-      'TELEGRAM_BOT_TOKEN',
-      'TELEGRAM_CHAT_ID',
-      'API_KEY',
-    ].filter((nome) => !process.env[nome]?.trim());
+    const missingConfig: string[] = VARIAVEIS_OBRIGATORIAS.filter(
+      (nome) => !process.env[nome]?.trim(),
+    );
 
     if (this.priceProvider.nome === 'serpapi' && !process.env.SERPAPI_KEY?.trim()) {
       missingConfig.push('SERPAPI_KEY');
@@ -57,7 +59,7 @@ export class HealthController {
       database,
       priceProvider: this.priceProvider.nome,
       priceProviderReal: this.priceProvider.nome !== 'fake',
-      watchEnabled: process.env.WATCH_ENABLED?.trim().toLowerCase() !== 'false',
+      watchEnabled: watchEnabled(),
       today: hoje(),
       missingConfig,
     };

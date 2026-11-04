@@ -1,11 +1,4 @@
-// Este arquivo nasceu como helper de depuração durante a Fase 1; o e2e de
-// verdade (que sobe o AppModule e precisa de Postgres) fica em
-// `app.e2e-spec.ts`. Aqui ficou um teste puro do montador de mensagens, que não
-// precisa de banco nem de rede.
-//
-// O sandbox desta sessão não permite apagar arquivos; remova com
-// `git rm backend/test/debug-health.spec.ts`.
-import { montarMensagem } from '../src/alerts/notification-message';
+import { montarMensagem } from './notification-message';
 
 describe('mensagem de aviso', () => {
   const base = {

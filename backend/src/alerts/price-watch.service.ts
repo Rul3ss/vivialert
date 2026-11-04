@@ -9,11 +9,12 @@ import { Repository } from 'typeorm';
 import { Alert } from '../alerts/alert.entity';
 import { AlertsService } from '../alerts/alerts.service';
 import { diferencaEmDias, hoje } from '../common/date';
+import { watchEnabled } from '../config/env';
 
 /**
  * O vigia: consulta o preço do alerta sozinho, sem ninguém clicar.
  *
- * Usa `setInterval` gerido pelo ciclo de vida do Nest em vez de
+ * Usa `setTimeout` gerido pelo ciclo de vida do Nest em vez de
  * `@nestjs/schedule`: uma tarefa recorrente só não justifica a dependência, e
  * assim nada mais entra no `package.json`.
  *
@@ -61,9 +62,8 @@ export class PriceWatchService implements OnApplicationBootstrap, OnApplicationS
     private readonly alertsService: AlertsService,
   ) {}
 
-  /** `WATCH_ENABLED=false` desliga o vigia (útil em testes e no CI). */
   get ativo(): boolean {
-    return process.env.WATCH_ENABLED?.trim().toLowerCase() !== 'false';
+    return watchEnabled();
   }
 
   get intervaloBase(): number {
